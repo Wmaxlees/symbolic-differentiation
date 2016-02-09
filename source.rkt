@@ -75,14 +75,14 @@
                     exp))
 
 (add-simplifier (exp)
-                '*
+                '**
                 ->
                 (if (and (exponentiation? exp) (=number? (exponent exp) 1))
                     (base exp)
                     exp))
 
 (add-simplifier (exp)
-                '*
+                '**
                 ->
                 (if (and (exponentiation? exp) (=number? (exponent exp) 0))
                     1
@@ -115,7 +115,7 @@
   (simplify (list '* m1 m2)))
 
 (define (make-exponentiation e0 e1 e2)
-  (list '** (list '* e0 e1) e2))
+  (simplify (list '** (list '* e0 e1) e2)))
 
 (define (addend s) (cadr s))
 (define (augend s)
