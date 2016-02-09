@@ -1,23 +1,100 @@
 #lang racket
 
+(require "rules.rkt")
+
+(add-rule (exp var)
+          '+
+          ->
+          (make-sum (deriv (addend exp) var)
+                    (deriv (augend exp) var)))
+
+(add-rule (exp var)
+          '*
+          ->
+          (make-sum
+           (make-product (multiplier exp)
+                         (deriv (multiplicand exp) var))
+           (make-product (deriv (multiplier exp) var)
+                         (multiplicand exp))))
+
+(add-rule (exp var)
+          '**
+          ->
+          (make-exponentiation
+           (exponent exp)
+           (base exp)
+           (- (exponent exp) 1)))
+
+(add-simplifier (exp)
+                '+
+                ->
+                (if (and (sum? exp) (=number? (addend exp) 0))
+                    (augend exp)
+                    exp))
+
+(add-simplifier (exp)
+                '+
+                ->
+                (if (and (sum? exp) (=number? (augend exp) 0))
+                    (addend exp)
+                    exp))
+
+(add-simplifier (exp)
+                '+
+                ->
+                (if (and (sum? exp) (number? (addend exp)) (number? (augend exp)))
+                    (+ (addend exp) (augend exp))
+                    exp))
+
+(add-simplifier (exp)
+                '*
+                ->
+                (if (and (product? exp) (or (=number? (multiplier exp) 0) (=number? (multiplicand exp) 0)))
+                    0
+                    exp))
+
+(add-simplifier (exp)
+                '*
+                ->
+                (if (and (product? exp) (=number? (multiplier exp) 1))
+                    (multiplicand exp)
+                    exp))
+
+(add-simplifier (exp)
+                '*
+                ->
+                (if (and (product? exp) (=number? (multiplicand exp) 1))
+                    (multiplier exp)
+                    exp))
+
+(add-simplifier (exp)
+                '*
+                ->
+                (if (and (product? exp) (number? (multiplier exp)) (number? (multiplicand exp)))
+                    (* (multiplier exp) (multiplicand exp))
+                    exp))
+
+(add-simplifier (exp)
+                '*
+                ->
+                (if (and (exponentiation? exp) (=number? (exponent exp) 1))
+                    (base exp)
+                    exp))
+
+(add-simplifier (exp)
+                '*
+                ->
+                (if (and (exponentiation? exp) (=number? (exponent exp) 0))
+                    1
+                    exp))
+                                                
 (define (deriv exp var)
   (cond [(number? exp) 0]
         [(variable? exp)
          (if (same-variable? exp var) 1 0)]
-        [(sum? exp)
-         (make-sum (deriv (addend exp) var)
-                   (deriv (augend exp) var))]
-        [(product? exp)
-         (make-sum
-          (make-product (multiplier exp)
-                        (deriv (multiplicand exp) var))
-          (make-product (deriv (multiplier exp) var)
-                        (multiplicand exp)))]
-        [(exponentiation? exp)
-         (make-exponentiation (base exp)
-                              (exponent exp))]
         [else
-         (error "unknown expression type -- DERIV" exp)]))
+         (cond [(rule-exists-for? exp) (exec-rule exp var)]
+               [else (error "unknown expression type -- DERIV" exp)])]))
 
 (define (variable? x) (symbol? x))
 (define (same-variable? v1 v2)
@@ -32,22 +109,13 @@
   (and (pair? x) (eq? (car x) '**)))
 
 (define (make-sum a1 a2)
-  (cond [(=number? a1 0) a2]
-        [(=number? a2 0) a1]
-        [(and (number? a1) (number? a2)) (+ a1 a2)]
-        [else (list '+ a1 a2)]))
+  (simplify (list '+ a1 a2)))
 
 (define (make-product m1 m2)
-  (cond [(or (=number? m1 0) (=number? m2 0)) 0]
-        [(=number? m1 1) m2]
-        [(=number? m2 1) m1]
-        [(and (number? m1) (number? m2)) (* m1 m2)]
-        [else (list '* m1 m2)]))
+  (simplify (list '* m1 m2)))
 
-(define (make-exponentiation m1 m2)
-  (cond [(=number? m2 1) 1]
-        [(=number? m2 2) (list '* 2 m1)]
-        [else (list '** (list '* m2 m1) (- m2 1))]))
+(define (make-exponentiation e0 e1 e2)
+  (list '** (list '* e0 e1) e2))
 
 (define (addend s) (cadr s))
 (define (augend s)
