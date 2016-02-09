@@ -1,23 +1,63 @@
 #lang racket
 
+; predicate -> how to handle
+
+(require "rules.rkt")
+
+(define-ruleset deriv-rules)
+
+(define-rule deriv-rules (constant exp var)
+  (number? exp)
+  =>
+  0)
+
+(define-rule deriv-rules (variable exp var)
+  (variable? exp)
+  => 
+  (if (same-variable? exp var) 1 0))
+
+(define-rule deriv-rules (sum exp var)
+  (sum? exp)
+  =>
+  (make-sum (deriv (addend exp) var)
+            (deriv (augend exp) var)))
+
+(define-rule deriv-rules (product exp var)
+  (product? exp)
+  =>
+  (make-sum
+   (make-product (multiplier exp)
+                 (deriv (multiplicand exp) var))
+   (make-product (deriv (multiplier exp) var)
+                 (multiplicand exp))))
+
+(define-rule deriv-rules (exponetiation exp var)
+  (exponentiation? exp)
+  =>
+  (make-exponentiation (base exp)
+                       (exponent exp)))
+
 (define (deriv exp var)
-  (cond [(number? exp) 0]
-        [(variable? exp)
-         (if (same-variable? exp var) 1 0)]
-        [(sum? exp)
-         (make-sum (deriv (addend exp) var)
-                   (deriv (augend exp) var))]
-        [(product? exp)
-         (make-sum
-          (make-product (multiplier exp)
-                        (deriv (multiplicand exp) var))
-          (make-product (deriv (multiplier exp) var)
-                        (multiplicand exp)))]
-        [(exponentiation? exp)
-         (make-exponentiation (base exp)
-                              (exponent exp))]
-        [else
-         (error "unknown expression type -- DERIV" exp)]))
+  (for ([rule (in-list (ruleset-rules deriv-rules))])
+    (cond [(applicable? rule exp var) (displayln (rule-name rule)) (displayln (action rule exp var))])))
+  
+;  (cond [(number? exp) 0]
+;        [(variable? exp)
+;         (if (same-variable? exp var) 1 0)]
+;        [(sum? exp)
+;         (make-sum (deriv (addend exp) var)
+;                   (deriv (augend exp) var))]
+;        [(product? exp)
+;         (make-sum
+;          (make-product (multiplier exp)
+;                        (deriv (multiplicand exp) var))
+;          (make-product (deriv (multiplier exp) var)
+;                        (multiplicand exp)))]
+;        [(exponentiation? exp)
+;         (make-exponentiation (base exp)
+;                              (exponent exp))]
+;        [else
+;         (error "unknown expression type -- DERIV" exp)]))
 
 (define (variable? x) (symbol? x))
 (define (same-variable? v1 v2)
